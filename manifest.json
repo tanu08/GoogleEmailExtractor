@@ -15,10 +15,15 @@
     "content_scripts": [
         {
             "matches" : ["https://plus.google.com/communities/*"],
-            "js": ["jquery.js", "contentScript.js"]
+            "js": [
+                "jquery.js", 
+                "underscore.js", 
+                "q.js", 
+                "contentScript.js"
+            ]
         }
     ],
     "permissions" : [
         "declarativeContent"
-  ]
+    ]
 }
