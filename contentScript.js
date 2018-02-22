@@ -3,13 +3,14 @@ var emailIDs = [];
 
 // POST on an API and get email for a given member ID
 function getEmailID( memberID ) {
-    var deferred = Q.defer();
-
-    var postData = '[[[64399324,[{"64399324":[null,null,[[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]]]],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]]]],[null,null,null,null,[[null,[2,null,"memberID"]]]],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,[2,[[[2,null,"memberID"]]]]],[null,null,null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]]]],[null,[[null,[2,null,"memberID"]],3]],[null,null,null,null,null,null,null,[[null,[2,null,"memberID"]],3]],[null,null,[[null,[2,null,"memberID"]]]],[null,null,null,[[null,[2,null,"memberID"]],8,null]],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]]]],[null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]],null,true]]],[null,[2,null,"memberID"]]]}],null,null,0]]]&at=APu-1p8_WsYlw3FYMfCWNUko3RNZ:1519219705883'
-
+    var deferred, postData, data; 
+    
+    deferred = Q.defer();
+    
+    postData = '[[[64399324,[{"64399324":[null,null,[[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]]]],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]]]],[null,null,null,null,[[null,[2,null,"memberID"]]]],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,[2,[[[2,null,"memberID"]]]]],[null,null,null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]]]],[null,[[null,[2,null,"memberID"]],3]],[null,null,null,null,null,null,null,[[null,[2,null,"memberID"]],3]],[null,null,[[null,[2,null,"memberID"]]]],[null,null,null,[[null,[2,null,"memberID"]],8,null]],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]]]],[null,null,null,null,null,null,null,null,[[null,[2,null,"memberID"]],null,true]]],[null,[2,null,"memberID"]]]}],null,null,0]]]&at=APu-1p8_WsYlw3FYMfCWNUko3RNZ:1519219705883'
     postData = postData.replace(/memberID/g, memberID);
     
-    var data = window.encodeURI('f.req=' + postData );
+    data = window.encodeURI('f.req=' + postData );
     
     $.ajax({
         "type" : "POST",
@@ -33,11 +34,15 @@ function getEmailID( memberID ) {
 }
 
 function getEmailIDSuccess(response, deferred) {
-    var userInfoItems = response.split(/,|\]|\[/);
+    var userInfoItems, memberEmailID, isEmailID;
+    
+     userInfoItems = response.split(/,|\]|\[/);
 
-    var memberEmailID = _.find(userInfoItems, function( infoItem) {
+    memberEmailID = _.find(userInfoItems, function( infoItem ) {
+        
         infoItem = ((typeof infoItem === "string") && infoItem.length > 1) ? infoItem.substring(1, infoItem.length-1) : infoItem;
-        var isEmailID = validateEmail(infoItem);
+        isEmailID = validateEmail(infoItem);
+        
         return isEmailID; 
     });
 
@@ -68,8 +73,9 @@ function triggerPopup() {
 
 // Trigger scroll on the list of members to load all of them in the dialog
 function scrollMembersList() {
-    var totalMembers = "";
-    var deferred = Q.defer();
+    var totalMembers = "",  deferred, currentMembersRendered;
+    
+    deferred = Q.defer();
 
     if($(".rZHH0e.hD3bZb").length && ($($(".rZHH0e.hD3bZb")[0]).text() !== "")) {
 
@@ -81,7 +87,7 @@ function scrollMembersList() {
         // Update Extension UI with this info
     }
 
-    var currentMembersRendered = $(".czUUib").length;
+    currentMembersRendered = $(".czUUib").length;
 
     timer = window.setInterval(function() { 
         currentMembersRendered = $(".czUUib").length;
@@ -104,10 +110,12 @@ function scrollMembersList() {
 
 // Check if the scroll-bar has reached end of the list by inspecting for a specific DOM
 function hasReachedEndOfList() {
-    var footerElements = $(".Jb45He.D7Ikwd");
+    var footerElements, reachedEnd;
+    
+    footerElements = $(".Jb45He.D7Ikwd");
 
     if( footerElements.length) {
-        var reachedEnd = _.find(footerElements, function(el) {
+        reachedEnd = _.find(footerElements, function(el) {
             return $(el).is(":visible");
         });
         return !!reachedEnd;
@@ -118,11 +126,13 @@ function hasReachedEndOfList() {
 // Loop through all members list, and retrieve their "Member ID" from the attribute "data-memberid".
 // For each member ID, invoke the utility method to retrieve their email ID.
 function scrapeMemberEmailIDs() {
-    var memberListItems = $(".czUUib");
+    var memberListItems, memberID;
+    
+    memberListItems = $(".czUUib");
 
     _.each(memberListItems, function(element, index, list) {
         
-        var memberID = $(element).attr("data-memberid");
+        memberID = $(element).attr("data-memberid");
 
         getEmailID(memberID).then(function(emailId) {
             if(emailId) {
@@ -138,7 +148,10 @@ function scrapeMemberEmailIDs() {
 }
 
 function saveEmailIDsToClipboard() {
-    var finalData = emailIDs.join(",");
+    var finalData;
+    
+    finalData = emailIDs.join(",");
+    
     console.log("======== List of Email IDs scraped for this page ======");
     console.log(finalData); 
 }
