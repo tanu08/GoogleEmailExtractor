@@ -1,0 +1,32 @@
+html {
+    height: 240px;
+    width: 240px;
+}
+
+body {
+    border: 2px solid #DEDEDE;
+    margin: 4px;
+}
+
+.title {
+    text-align: center;
+    font-family: monospace;
+    margin-top: 22px;
+}
+
+.extract-mail-button {
+    margin: 0 auto;
+    display: inherit;
+    margin-top: 34px;
+    height: 70px;
+    width: 150px;
+    border-radius: 30px;
+    cursor: pointer;
+}
+
+.sub-title {
+    text-align: center;
+    font-family: monospace;
+    font-size: 12px;
+    color: #BBBBBB;
+}

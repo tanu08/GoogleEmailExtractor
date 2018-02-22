@@ -1,5 +1,126 @@
-
+//global for email IDs
 var emailIDs = [];
+// communication channel between content script and extension
+var port = chrome.runtime.connect( { name: "mailExtraction" } );
+    
+$(document).ready(function() {
+    setUpCommunication();
+});
+
+//listeners for messages from background.js
+function setUpCommunication() {
+    port.onMessage.addListener( function( event ) {
+        if ( event.type === "extract")
+            extractEmails();
+        else if ( event.type === "cancel")
+            cancelExtraction();
+    });
+}
+
+function extractEmails() {
+    if(triggerPopup()) {
+        scrollMembersList().then(function() {
+            console.log("Scrolling complete. All members should be loaded in DOM by now!");
+            console.log("Members loaded: " + $(".czUUib").length);
+            scrapeMemberEmailIDs();
+        }, function() {
+            console.error("Some error occurred in scrollMembersList function");
+        });
+    } else {
+        // Update Extension UI with Error
+    }
+}
+
+//an array of elements clicking on which opens pop-up. As we want a single pop-up, thus indexing reqd
+//modal+modal backdrop to be hidden
+function triggerPopup() {
+    try {
+        $( $('.hD3bZb')[0] ).trigger('click');
+        $(".LVl1od.Ko2YWc").hide();
+        $(".sVAYfc").fadeTo(10, 0);
+    } catch (error) {
+        return false;
+    }
+
+    return true;
+}
+
+// Loop through all members list, and retrieve their "Member ID" from the attribute "data-memberid".
+// For each member ID, invoke the utility method to retrieve their email ID.
+function scrapeMemberEmailIDs() {
+    var memberListItems, memberID;
+    
+    memberListItems = $(".czUUib");
+
+    _.each(memberListItems, function(element, index, list) {
+        
+        memberID = $(element).attr("data-memberid");
+
+        getEmailID(memberID).then(function(emailId) {
+            if(emailId) {
+                emailIDs.push(emailId);
+            }
+            if(index === list.length - 1) {
+                saveEmailIDsToClipboard();
+            }
+        }, function(error) {
+            console.error("Error while fetching Email ID");
+        });
+    });
+}
+
+// Trigger scroll on the list of members to load all of them in the dialog
+function scrollMembersList() {
+    var totalMembers = "",  deferred, currentMembersRendered;
+    
+    deferred = Q.defer();
+
+    if($(".rZHH0e.hD3bZb").length && ($($(".rZHH0e.hD3bZb")[0]).text() !== "")) {
+
+        totalMembers = $($(".rZHH0e.hD3bZb")[0]).text().split(" members")[0].replace(",", "");
+        totalMembers = window.parseInt(totalMembers, 10);
+
+        console.log("Total Members in this community page: " + totalMembers);
+
+        // Update Extension UI with this info
+    }
+
+    currentMembersRendered = $(".czUUib").length;
+
+    timer = window.setInterval(function() { 
+        currentMembersRendered = $(".czUUib").length;
+
+        if( !hasReachedEndOfList()) { 
+
+            console.log("Members loaded: " + currentMembersRendered);
+
+            $(".xKQBb")[0].scrollTop = $(".xKQBb")[0].scrollHeight;
+            postProgress(currentMembersRendered, totalMembers);
+        } else {
+            console.log("clearing timer"); 
+            window.clearInterval(timer);
+            postProgress();
+            deferred.resolve();
+        } 
+    }, 1000);
+
+    return deferred.promise;
+}
+
+// Check if the scroll-bar has reached end of the list by inspecting for a specific DOM
+function hasReachedEndOfList() {
+    var footerElements, reachedEnd;
+    
+    footerElements = $(".Jb45He.D7Ikwd");
+
+    if( footerElements.length) {
+        reachedEnd = _.find(footerElements, function(el) {
+            return $(el).is(":visible");
+        });
+        return !!reachedEnd;
+    }
+    return false;
+}
 
 // POST on an API and get email for a given member ID
 function getEmailID( memberID ) {
@@ -57,96 +178,7 @@ function validateEmail( string ) {
     return re.test( string );
 }
 
-//an array of elements clicking on which opens pop-up. As we want a single pop-up, thus indexing reqd
-//modal+modal backdrop to be hidden
-function triggerPopup() {
-    try {
-        $( $('.hD3bZb')[0] ).trigger('click');
-        $(".LVl1od.Ko2YWc").hide();
-        $(".sVAYfc").fadeTo(10, 0);
-    } catch (error) {
-        return false;
-    }
-
-    return true;
-}
-
-// Trigger scroll on the list of members to load all of them in the dialog
-function scrollMembersList() {
-    var totalMembers = "",  deferred, currentMembersRendered;
-    
-    deferred = Q.defer();
-
-    if($(".rZHH0e.hD3bZb").length && ($($(".rZHH0e.hD3bZb")[0]).text() !== "")) {
-
-        totalMembers = $($(".rZHH0e.hD3bZb")[0]).text().split(" members")[0].replace(",", "");
-        totalMembers = window.parseInt(totalMembers, 10);
-
-        console.log("Total Members in this community page: " + totalMembers);
-
-        // Update Extension UI with this info
-    }
-
-    currentMembersRendered = $(".czUUib").length;
-
-    timer = window.setInterval(function() { 
-        currentMembersRendered = $(".czUUib").length;
-
-        if( !hasReachedEndOfList()) { 
-
-            console.log("Members loaded: " + currentMembersRendered);
-
-            $(".xKQBb")[0].scrollTop = $(".xKQBb")[0].scrollHeight;
-
-        } else {
-            console.log("clearing timer"); 
-            window.clearInterval(timer);
-            deferred.resolve();
-        } 
-    }, 1000);
-
-    return deferred.promise;
-}
-
-// Check if the scroll-bar has reached end of the list by inspecting for a specific DOM
-function hasReachedEndOfList() {
-    var footerElements, reachedEnd;
-    
-    footerElements = $(".Jb45He.D7Ikwd");
-
-    if( footerElements.length) {
-        reachedEnd = _.find(footerElements, function(el) {
-            return $(el).is(":visible");
-        });
-        return !!reachedEnd;
-    }
-    return false;
-}
-
-// Loop through all members list, and retrieve their "Member ID" from the attribute "data-memberid".
-// For each member ID, invoke the utility method to retrieve their email ID.
-function scrapeMemberEmailIDs() {
-    var memberListItems, memberID;
-    
-    memberListItems = $(".czUUib");
-
-    _.each(memberListItems, function(element, index, list) {
-        
-        memberID = $(element).attr("data-memberid");
-
-        getEmailID(memberID).then(function(emailId) {
-            if(emailId) {
-                emailIDs.push(emailId);
-            }
-            if(index === list.length - 1) {
-                saveEmailIDsToClipboard();
-            }
-        }, function(error) {
-            console.error("Error while fetching Email ID");
-        });
-    });
-}
-
+//saving to clipboard
 function saveEmailIDsToClipboard() {
     var finalData;
     
@@ -156,27 +188,17 @@ function saveEmailIDsToClipboard() {
     console.log(finalData); 
 }
 
-function extractEmails() {
-    if(triggerPopup()) {
-        scrollMembersList().then(function() {
-            console.log("Scrolling complete. All members should be loaded in DOM by now!");
-            console.log("Members loaded: " + $(".czUUib").length);
-            scrapeMemberEmailIDs();
-        }, function() {
-            console.error("Some error occurred in scrollMembersList function");
-        });
-    } else {
-        // Update Extension UI with Error
-    }
+//utility
+function postProgress( done, total ) {
+    var number;
+    number = calculateProgress( done, total );
+    port.postMessage({progress: number });
 }
 
-$(document).ready(function() {
-    console.log( "Ready to scrape email IDs!" );
-    extractEmails();
-});
-
-//to send the data to the extension.
-//chrome.runtime.connect("kcbfnjgklchgncadhpeoneeecobcaadh", {"emails" : emailIDs} );
+function calculateProgress( done, total ){
+    var number = Math.ceil(( done / total ) * 100);
+    return number ;
+}
 
 
 
