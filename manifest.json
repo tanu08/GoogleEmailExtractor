@@ -12,6 +12,12 @@
         "default_title": "Google Mail Extractor",      
         "default_popup": "index.html"        
     },
+    "content_scripts": [
+        {
+            "matches" : ["https://plus.google.com/communities/*"],
+            "js": ["jquery.js", "contentScript.js"]
+        }
+    ],
     "permissions" : [
         "declarativeContent"
   ]
