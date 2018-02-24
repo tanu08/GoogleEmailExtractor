@@ -1,7 +1,6 @@
-//global for email IDs
-var emailIDs = [];
-// communication channel between content script and extension
-var port = chrome.runtime.connect( { name: "FromContentScriptToExtension" } );
+//globals
+var port, totalMembers, emailIDs = [], scrollingTimer, finalData, currentState = "init";
+var membersProcessed = 0, percentageScrolled, percentageScraped;
     
 $(document).ready(function() {
     setUpCommunication();
@@ -9,17 +8,44 @@ $(document).ready(function() {
 
 //listeners for messages from background.js
 function setUpCommunication() {
-    port.onMessage.addListener( function( event ) {
-        
-    });
 
-    chrome.runtime.onMessage.addListener(
-        function(request, sender, sendResponse) {
-            if ( request.type === "extract")
-                extractEmails();
-            else if ( request.type === "cancel")
-                cancelExtraction();
-        });
+    port = chrome.runtime.connect({ name: "Extension-ContentScript" });
+
+    port.onMessage.addListener(function(msg) {    
+      console.log("Received msg from backgound script: " + msg.type);
+
+      switch(msg.type) {
+        case "popupLoaded": popupLoaded(); break;
+        case "extract": extractEmails(); break;
+        case "cancel": cancelExtraction(); break;
+        case "reset": reset(); break;
+      }
+
+    });
+}
+
+// This msg is posted from index.js, when the popup dialog is loaded each time. Publish everything useful to restore popup UI correctly. 
+function popupLoaded() {
+    scrapeTotalMemberCount();
+    publishCurrentState();
+}
+
+function scrapeTotalMemberCount() {
+    if($(".rZHH0e.hD3bZb").length && ($($(".rZHH0e.hD3bZb")[0]).text() !== "")) {
+
+        totalMembers = $($(".rZHH0e.hD3bZb")[0]).text().split(" members")[0].replace(",", "");
+        totalMembers = window.parseInt(totalMembers, 10);
+
+        console.log("Total Members in this community page: " + totalMembers);
+
+        // Update Extension UI with this info
+        postMessage({ type: 'stats' });
+    }
+}
+
+// Publish the current state of the email extraction. This is to handle opening/closing of popups in between an extraction run.
+function publishCurrentState() {
+    postMessage({ type: currentState });
 }
 
 function extractEmails() {
@@ -33,6 +59,7 @@ function extractEmails() {
         });
     } else {
         // Update Extension UI with Error
+        postMessage({type: 'error'});
     }
 }
 
@@ -42,7 +69,7 @@ function triggerPopup() {
     try {
         $( $('.hD3bZb')[0] ).trigger('click');
         $(".LVl1od.Ko2YWc").hide();
-        $(".sVAYfc").fadeTo(10, 0);
+        $(".sVAYfc").fadeTo(1, 0);
     } catch (error) {
         return false;
     }
@@ -50,49 +77,15 @@ function triggerPopup() {
     return true;
 }
 
-// Loop through all members list, and retrieve their "Member ID" from the attribute "data-memberid".
-// For each member ID, invoke the utility method to retrieve their email ID.
-function scrapeMemberEmailIDs() {
-    var memberListItems, memberID;
-    
-    memberListItems = $(".czUUib");
-
-    _.each(memberListItems, function(element, index, list) {
-        
-        memberID = $(element).attr("data-memberid");
-
-        getEmailID(memberID).then(function(emailId) {
-            if(emailId) {
-                emailIDs.push(emailId);
-            }
-            if(index === list.length - 1) {
-                saveEmailIDsToClipboard();
-            }
-        }, function(error) {
-            console.error("Error while fetching Email ID");
-        });
-    });
-}
-
 // Trigger scroll on the list of members to load all of them in the dialog
 function scrollMembersList() {
-    var totalMembers = "",  deferred, currentMembersRendered;
+    var deferred, msgType = currentState = 'processing', currentMembersRendered = 0;
     
     deferred = Q.defer();
 
-    if($(".rZHH0e.hD3bZb").length && ($($(".rZHH0e.hD3bZb")[0]).text() !== "")) {
-
-        totalMembers = $($(".rZHH0e.hD3bZb")[0]).text().split(" members")[0].replace(",", "");
-        totalMembers = window.parseInt(totalMembers, 10);
-
-        console.log("Total Members in this community page: " + totalMembers);
-
-        // Update Extension UI with this info
-    }
-
     currentMembersRendered = $(".czUUib").length;
 
-    timer = window.setInterval(function() { 
+    scrollingTimer = window.setInterval(function() { 
         currentMembersRendered = $(".czUUib").length;
 
         if( !hasReachedEndOfList()) { 
@@ -100,11 +93,15 @@ function scrollMembersList() {
             console.log("Members loaded: " + currentMembersRendered);
 
             $(".xKQBb")[0].scrollTop = $(".xKQBb")[0].scrollHeight;
-            postProgress(currentMembersRendered, totalMembers);
+            postProgress(msgType, currentMembersRendered, totalMembers);
         } else {
-            console.log("clearing timer"); 
-            window.clearInterval(timer);
-            postProgress(currentMembersRendered, totalMembers );
+            console.log("clearing timer");
+            window.clearInterval(scrollingTimer);
+            // In some cases, the number of members scrolled in modal dialog doesn't match with "total members" shown in left panel.
+            // Even though members loaded in DOM is less, for the extension it means 100% loading done as we have 
+            // reached the end of the scrolling list.
+            currentMembersRendered = totalMembers;
+            postProgress(msgType, currentMembersRendered, totalMembers );
             deferred.resolve();
         } 
     }, 1000);
@@ -125,6 +122,42 @@ function hasReachedEndOfList() {
         return !!reachedEnd;
     }
     return false;
+}
+
+// Loop through all members list, and retrieve their "Member ID" from the attribute "data-memberid".
+// For each member ID, invoke the utility method to retrieve their email ID.
+function scrapeMemberEmailIDs() {
+    var memberListItems, memberID, totalMembers, msgType;
+    
+    memberListItems = $(".czUUib");
+    totalMembers = memberListItems.length;
+
+    _.each(memberListItems, function(element, index, list) {
+        
+        memberID = $(element).attr("data-memberid");
+
+        getEmailID(memberID).then(function(emailId) {
+            if(emailId) {
+                emailIDs.push(emailId);
+            }
+
+            membersProcessed++;
+            percentageScraped = calculateProgress( membersProcessed, totalMembers );
+
+            if(membersProcessed === list.length) {
+                finalData = emailIDs.join(", ");
+                msgType = currentState = "completed";
+                postMessage({type: msgType });
+                
+            } else {
+                msgType = currentState = "extracting";
+                postMessage({type: msgType });
+            }
+            
+        }, function(error) {
+            console.error("Error while fetching Email ID");
+        });
+    });
 }
 
 // POST on an API and get email for a given member ID
@@ -183,26 +216,50 @@ function validateEmail( string ) {
     return re.test( string );
 }
 
-//saving to clipboard
-function saveEmailIDsToClipboard() {
-    var finalData;
-    
-    finalData = emailIDs.join(",");
-    
-    console.log("======== List of Email IDs scraped for this page ======");
-    console.log(finalData); 
+// once the copy functionality is completed / cancelled, reset all globals and do cleanup here.
+function reset() {
+    emailIDs = [];
+    currentState = "init";
+    window.clearInterval(scrollingTimer);
 }
 
 //utility
-function postProgress( done, total ) {
-    var number;
-    number = calculateProgress( done, total );
-    port.postMessage({progress: number });
+
+// Posts the percentage of users scrolled in the modal dialog
+function postProgress( type, done, total ) {
+    var percentage;
+    percentage = percentageScrolled = calculateProgress( done, total );
+    postMessage({type: type });
 }
 
 function calculateProgress( done, total ){
-    var number = Math.ceil(( done / total ) * 100);
-    return number ;
+    var percentage = Math.ceil(( done / total ) * 100);
+    return percentage ;
+}
+
+function postMessage(msg) {
+    var msgType = msg.type;
+
+    switch(msgType) {
+        case 'init':
+            port.postMessage({ type: msgType });
+            break;
+        case 'stats':
+            port.postMessage({ type: msgType, totalMemberCount: totalMembers });
+            break;
+        case 'processing':
+            port.postMessage({type: msgType, progress: percentageScrolled });
+            break;
+        case 'extracting':
+            port.postMessage({type: msgType, emailsExtracted: emailIDs.length, percentageScraped: percentageScraped });
+            break;
+        case 'completed':
+            port.postMessage({type: msgType, emailsExtracted: emailIDs.length, percentageScraped: percentageScraped, finalData: finalData });
+            break;
+        case 'error':
+            port.postMessage({ type: msgType });
+            break;
+    }
 }
 
 

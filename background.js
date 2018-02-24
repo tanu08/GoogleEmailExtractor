@@ -1,3 +1,6 @@
+// Globals
+var globalPort;
+
 // When the extension is installed or upgraded ...
 chrome.runtime.onInstalled.addListener(function() {
   // Replace all rules ...
@@ -18,43 +21,29 @@ chrome.runtime.onInstalled.addListener(function() {
   });
 });
 
-$( document ).on("load",function() {
-    var extractElement = document.getElementById('extract');
-    var cancelElement = document.getElementById('cancel');
-    
-    if ( extractElement )
-      extractElement.addEventListener('click', function(event) {
-          extractEvent(event);
-      });
-      if ( cancelElement )
-      cancelElement.addEventListener('click', function(event) {
-          cancelEvent(event);
-      });
+chrome.runtime.onConnect.addListener(function(port) {
+    var popUpView;
 
+    console.log("Received Incoming long-lived connection " + port);
+
+    globalPort = port;
+
+    globalPort.onMessage.addListener(function(msg) {    
+      console.log("Received msg from content script: " + msg.type);
+
+      if(chrome.extension.getViews({type:'popup'}).length > 0) {
+        console.log("Calling function on popUpView");
+
+        popUpView = chrome.extension.getViews({type:'popup'})[0];
+        popUpView.onMessage(msg);
+      }
+      
+    });
+
+    
 });
 
-function extractEvent( event ) {
-  chrome.tabs.query({ active: true, currentWindow: true, windowType: "normal" }, function( tabs ){
-    chrome.tabs.sendMessage( tabs[0].id, { type: "extract" }, function( response ){
-        changeButtonState("started");
-    });
-  });
-}
-
-function cancelEvent( event ) {
-  chrome.tabs.query({ active: true, currentWindow: true, windowType: "normal" }, function( tabs ){
-    chrome.tabs.sendMessage( tabs[0].id, { type: "cancel" }, function( response ){
-        changeButtonState("cancelled");
-    });
-  });
-}
-
-function changeButtonState( state ){
-  switch( state ){
-    case "started" : console.log("Extracted"); 
-                    break;
-    case "cancelled" : console.log("Cancelled"); 
-                    break;
-  }
-
+function postMessage(msg) {
+  console.log("Sending msg from popUpView to content script via background.js: " + msg.type);
+  globalPort.postMessage(msg);
 }

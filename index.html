@@ -1,11 +1,18 @@
 <html>
     <head>
         <link rel="stylesheet" type="text/css" href="extension.css"/>
+        <script type="text/javascript" src="jquery.js"></script>
+        <script type="text/javascript" src="index.js"></script>
+        <script type="text/javascript" src="clipboard.min.js"></script>
     </head>
     <body>
         <h1 class="title"> Mail Extractor </h1>
         <h2 class='sub-title'> Scrape mail IDs of members on Google+ Communities Pages </h2>
-        <button class="extract-mail-button" id="extract"> Extract Email </button>
-        <button class="cancel-extract-mail-button hide" id="cancel"> Cancel Extraction </button>
+        <div class="members-count visibility-hidden"></div>
+        <div class="job-status visibility-hidden"></div>
+        <button class="extract-mail-button active" id="extract" data-processing="" data-extracting="" data-action="Extract Emails" data-completed="Done! Copy to clipboard"> 
+        	<span class="progress-bar"></span>
+        </button>
+        <button class="cancel-extract-mail-button hide" id="cancel"> Cancel </button>
     </body>
 </html>
