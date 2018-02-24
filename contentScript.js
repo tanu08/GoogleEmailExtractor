@@ -1,7 +1,7 @@
 //global for email IDs
 var emailIDs = [];
 // communication channel between content script and extension
-var port = chrome.runtime.connect( { name: "mailExtraction" } );
+var port = chrome.runtime.connect( { name: "FromContentScriptToExtension" } );
     
 $(document).ready(function() {
     setUpCommunication();
@@ -10,11 +10,16 @@ $(document).ready(function() {
 //listeners for messages from background.js
 function setUpCommunication() {
     port.onMessage.addListener( function( event ) {
-        if ( event.type === "extract")
-            extractEmails();
-        else if ( event.type === "cancel")
-            cancelExtraction();
+        
     });
+
+    chrome.runtime.onMessage.addListener(
+        function(request, sender, sendResponse) {
+            if ( request.type === "extract")
+                extractEmails();
+            else if ( request.type === "cancel")
+                cancelExtraction();
+        });
 }
 
 function extractEmails() {
@@ -99,7 +104,7 @@ function scrollMembersList() {
         } else {
             console.log("clearing timer"); 
             window.clearInterval(timer);
-            postProgress();
+            postProgress(currentMembersRendered, totalMembers );
             deferred.resolve();
         } 
     }, 1000);

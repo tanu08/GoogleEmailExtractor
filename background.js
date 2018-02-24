@@ -5,10 +5,10 @@ chrome.runtime.onInstalled.addListener(function() {
     // With a new rule ...
     chrome.declarativeContent.onPageChanged.addRules([
       {
-        // That fires when a page's URL contains a 'g' ...
+        // That fires when a page's URL contains a 'plus.google.com/communities/' ...
         conditions: [
           new chrome.declarativeContent.PageStateMatcher({
-            pageUrl: { urlContains: 'g' },
+            pageUrl: { urlContains: 'plus.google.com/communities/' },
           })
         ],
         // And shows the extension's page action.
@@ -18,14 +18,43 @@ chrome.runtime.onInstalled.addListener(function() {
   });
 });
 
-chrome.runtime.onConnect.addListener(function(port) {
-  console.assert( port.name == "mailExtraction");
-  port.onMessage.addListener(function(msg) {
-    if (msg.joke == "Knock knock")
-      port.postMessage({question: "Who's there?"});
-    else if (msg.answer == "Madame")
-      port.postMessage({question: "Madame who?"});
-    else if (msg.answer == "Madame... Bovary")
-      port.postMessage({question: "I don't get it."});
-  });
+$( document ).on("load",function() {
+    var extractElement = document.getElementById('extract');
+    var cancelElement = document.getElementById('cancel');
+    
+    if ( extractElement )
+      extractElement.addEventListener('click', function(event) {
+          extractEvent(event);
+      });
+      if ( cancelElement )
+      cancelElement.addEventListener('click', function(event) {
+          cancelEvent(event);
+      });
+
 });
+
+function extractEvent( event ) {
+  chrome.tabs.query({ active: true, currentWindow: true, windowType: "normal" }, function( tabs ){
+    chrome.tabs.sendMessage( tabs[0].id, { type: "extract" }, function( response ){
+        changeButtonState("started");
+    });
+  });
+}
+
+function cancelEvent( event ) {
+  chrome.tabs.query({ active: true, currentWindow: true, windowType: "normal" }, function( tabs ){
+    chrome.tabs.sendMessage( tabs[0].id, { type: "cancel" }, function( response ){
+        changeButtonState("cancelled");
+    });
+  });
+}
+
+function changeButtonState( state ){
+  switch( state ){
+    case "started" : console.log("Extracted"); 
+                    break;
+    case "cancelled" : console.log("Cancelled"); 
+                    break;
+  }
+
+}

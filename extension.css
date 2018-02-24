@@ -14,7 +14,7 @@ body {
     margin-top: 22px;
 }
 
-.extract-mail-button {
+.extract-mail-button, .cancel-extract-mail-button {
     margin: 0 auto;
     display: inherit;
     margin-top: 34px;
@@ -29,4 +29,8 @@ body {
     font-family: monospace;
     font-size: 12px;
     color: #BBBBBB;
+}
+
+.hide {
+    display: none;
 }

@@ -4,8 +4,8 @@
     "version": "1.0",
     "description": "Extract Emails from google+ communities web page",
     "background": {
-        "scripts": ["background.js"],
-        "persistent": false
+        "scripts": ["jquery.js", "background.js"],
+        "persistent": true
     },
     "icons": {},
     "page_action": {
