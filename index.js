@@ -22,7 +22,7 @@ $(document).ready(function() {
     onPopupLoaded();
 });
                                              
-// Communication Channel:  Content Script <===port===> background.js <===port====> index.js
+// Communication Channel:  Content Script <===port===> background.js <===window====> index.js
 
 // Triggered by the background.js script, when it receives a message from content script via the long-lived port connection
 function onMessage(msg) {
@@ -64,7 +64,7 @@ function changeJobStatus( msg ) {
 
     case "processing": 
       progress = msg.progress + "%";
-
+      $(".cancel-extract-mail-button").removeClass("visibility-hidden");
       $(".job-status").removeClass("visibility-hidden").text("Processing");
       $(".extract-mail-button").removeClass("active extracting").addClass("processing").attr('data-processing', progress);
       $(".progress-bar").removeClass("extracting completed").addClass("processing").width(progress);
@@ -73,6 +73,7 @@ function changeJobStatus( msg ) {
     case "extracting":
       progress = msg.percentageScraped + "%";
 
+      $(".cancel-extract-mail-button").removeClass("visibility-hidden");
       $(".job-status").removeClass("visibility-hidden").text("Extracting: (" + msg.emailsExtracted + " emails)");
       $(".extract-mail-button").removeClass("active processing").addClass("extracting").attr('data-extracting', progress);;
       $(".progress-bar").removeClass("processing completed").addClass("extracting").width(progress);
@@ -82,13 +83,16 @@ function changeJobStatus( msg ) {
       progress = msg.percentageScraped + "%";
       extractedEmails = msg.finalData;
 
+      $(".cancel-extract-mail-button").addClass("visibility-hidden");
       $(".job-status").removeClass("visibility-hidden").text(msg.emailsExtracted + " Emails extracted");
       $(".extract-mail-button").removeClass("active processing extracting").addClass("completed");
       $(".progress-bar").removeClass("processing extracting").addClass("completed").width(progress);
       initClipboard();
       break;
 
-    case "error":
+    case "error": $(".cancel-extract-mail-button").removeClass("visibility-hidden");
+      $(".job-status").removeClass("visibility-hidden").text("Error encountered. Please click Cancel and reset.");
+      $(".progress-bar").removeClass("processing extracting").addClass("completed").width(progress);
       break;
 
     default:
@@ -122,6 +126,7 @@ function initClipboard() {
 
 // once the copy functionality is completed , reset all globals and do cleanup here.
 function resetPopupUI() {
+  $(".cancel-extract-mail-button").addClass("visibility-hidden");
   $('.job-status').addClass('visibility-hidden');
   $('.extract-mail-button').removeClass('processing extracting completed').addClass('active');
   $(".progress-bar").removeClass("processing extracting completed");

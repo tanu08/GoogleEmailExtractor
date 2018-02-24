@@ -21,6 +21,7 @@ chrome.runtime.onInstalled.addListener(function() {
   });
 });
 
+
 chrome.runtime.onConnect.addListener(function(port) {
     var popUpView;
 

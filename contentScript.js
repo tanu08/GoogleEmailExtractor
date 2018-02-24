@@ -1,4 +1,11 @@
+/*states of the application : 1) init : initialize the Popup UI.
+                              2) processing : Scrolling the dialog for entire list
+                              3) extracting : Call POST per member
+                              4) completed : All emails extracted 
+*/
+
 //globals
+
 var port, totalMembers, emailIDs = [], scrollingTimer, finalData, currentState = "init";
 var membersProcessed = 0, percentageScrolled, percentageScraped;
     
@@ -67,9 +74,11 @@ function extractEmails() {
 //modal+modal backdrop to be hidden
 function triggerPopup() {
     try {
-        $( $('.hD3bZb')[0] ).trigger('click');
-        $(".LVl1od.Ko2YWc").hide();
-        $(".sVAYfc").fadeTo(1, 0);
+        if ( $(".sVAYfc").length === 0 ){
+            $( $('.hD3bZb')[0] ).trigger('click');
+            $(".LVl1od.Ko2YWc").hide();
+            $(".sVAYfc").fadeTo(1, 0);
+        }
     } catch (error) {
         return false;
     }
@@ -129,6 +138,8 @@ function hasReachedEndOfList() {
 function scrapeMemberEmailIDs() {
     var memberListItems, memberID, totalMembers, msgType;
     
+    currentState = "extracting";
+
     memberListItems = $(".czUUib");
     totalMembers = memberListItems.length;
 
@@ -136,27 +147,31 @@ function scrapeMemberEmailIDs() {
         
         memberID = $(element).attr("data-memberid");
 
-        getEmailID(memberID).then(function(emailId) {
-            if(emailId) {
-                emailIDs.push(emailId);
-            }
+        if ( currentState === "extracting" ){
+            getEmailID( memberID ).then(function(emailId) {
+                if(emailId) {
+                    emailIDs.push(emailId);
+                }
 
-            membersProcessed++;
-            percentageScraped = calculateProgress( membersProcessed, totalMembers );
+                membersProcessed++;
+                percentageScraped = calculateProgress( membersProcessed, totalMembers );
 
-            if(membersProcessed === list.length) {
-                finalData = emailIDs.join(", ");
-                msgType = currentState = "completed";
-                postMessage({type: msgType });
+                if(membersProcessed === list.length) {
+                    finalData = emailIDs.join(", ");
+                    msgType = currentState = "completed";
+                    postMessage({type: msgType });
+                    
+                } else {
+                    msgType = currentState = "extracting";
+                    postMessage({type: msgType });
+                }
                 
-            } else {
-                msgType = currentState = "extracting";
-                postMessage({type: msgType });
-            }
-            
-        }, function(error) {
-            console.error("Error while fetching Email ID");
-        });
+            }, function(error) {
+                currentState = "error";
+                publishCurrentState();
+                console.error("Error while fetching Email ID");
+            });
+        } 
     });
 }
 
@@ -185,7 +200,11 @@ function getEmailID( memberID ) {
         "error" : function( xhr, textStatus, errorThrown ) {
             // Triggering a success here, because the POST API returns content-Type: 'application/json', but its actually not a valid JSON body.
             // This leads to a "parseError" in Jquery, leading to invocation of this error Callback even though API returned 200 OK
-            getEmailIDSuccess(xhr.responseText, deferred);
+            if ( xhr.status === 200 )
+                getEmailIDSuccess(xhr.responseText, deferred);
+            else {
+                deferred.reject();
+            }
         }
     });
 
@@ -219,7 +238,9 @@ function validateEmail( string ) {
 // once the copy functionality is completed / cancelled, reset all globals and do cleanup here.
 function reset() {
     emailIDs = [];
+    $( document ).trigger('click');
     currentState = "init";
+    membersProcessed = 0;
     window.clearInterval(scrollingTimer);
 }
 
@@ -259,6 +280,20 @@ function postMessage(msg) {
         case 'error':
             port.postMessage({ type: msgType });
             break;
+    }
+}
+
+function cancelExtraction( event ) {
+    switch( currentState ) {
+        case "processing" : reset();
+                            publishCurrentState(); 
+                            break;
+        case "extracting" : ( emailIDs.length === 0 ) ? reset() : currentState = "completed";
+                            publishCurrentState(); 
+                            break;
+        case "error"     : reset();
+                            publishCurrentState(); 
+                            break;
     }
 }
 
