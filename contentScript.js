@@ -53,9 +53,18 @@ function popupLoaded() {
 }
 
 function scrapeTotalMemberCount() {
+    var items;
+
     if($(".rZHH0e.hD3bZb").length && ($($(".rZHH0e.hD3bZb")[0]).text() !== "")) {
 
-        totalMembers = $($(".rZHH0e.hD3bZb")[0]).text().split(" members")[0].replace(",", "");
+        // The members count can be any of these forms based on language of the page ("462,316 miembros", "462 316 membres", 462.316 membri)
+        // So, just split the entire string into separate characters and filter out the ones which are valid integers
+        items = $($(".rZHH0e.hD3bZb")[0]).text().split(/|/);
+
+        totalMembers = _.filter(items, function(char) {
+            return !_.isNaN(parseInt(char, 10));
+        }).join("");
+
         totalMembers = window.parseInt(totalMembers, 10);
 
         console.log("Total Members in this community page: " + totalMembers);
