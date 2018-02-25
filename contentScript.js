@@ -1,7 +1,9 @@
-/*states of the application : 1) init : initialize the Popup UI.
-                              2) processing : Scrolling the dialog for entire list
-                              3) extracting : Call POST per member
-                              4) completed : All emails extracted 
+/*states of the application : 
+1) connected: Inform Background script that content script has received port connection
+1) init : initialize the Popup UI.
+2) processing : Scrolling the dialog for entire list
+3) extracting : Call POST per member
+4) completed : All emails extracted 
 */
 
 //globals
@@ -9,25 +11,38 @@
 var port, totalMembers, emailIDs = [], scrollingTimer, finalData, currentState = "init";
 var membersProcessed = 0, percentageScrolled, percentageScraped;
     
+setUpCommunication();
+
 $(document).ready(function() {
-    setUpCommunication();
+    
 });
 
 //listeners for messages from background.js
 function setUpCommunication() {
+    
+    chrome.runtime.onConnect.addListener(function(receivedPort) {
+        console.log("Received Incoming Port connection from background.js: " + receivedPort.name);
 
-    port = chrome.runtime.connect({ name: "Extension-ContentScript" });
+        port = receivedPort;
 
-    port.onMessage.addListener(function(msg) {    
-      console.log("Received msg from backgound script: " + msg.type);
+        port.onMessage.addListener(function(msg) {    
+          console.log("Received msg from background script: " + msg.type);
 
-      switch(msg.type) {
-        case "popupLoaded": popupLoaded(); break;
-        case "extract": extractEmails(); break;
-        case "cancel": cancelExtraction(); break;
-        case "reset": reset(); break;
-      }
+          switch(msg.type) {
+            case "popupLoaded": popupLoaded(); break;
+            case "extract": extractEmails(); break;
+            case "cancel": cancelExtraction(); break;
+            case "reset": reset(); break;
+          }
+        });
 
+        // This event gets fired when port.disconnect() is called from the other end (background script)
+        port.onDisconnect.addListener( function(disconnectedPort) {
+            console.log('Received port disconnect event from background.js: ' + disconnectedPort.name);
+            port = null;
+        });
+
+        postMessage({ type: 'connected' });
     });
 }
 
@@ -77,7 +92,9 @@ function triggerPopup() {
         if ( $(".sVAYfc").length === 0 ){
             $( $('.hD3bZb')[0] ).trigger('click');
             $(".LVl1od.Ko2YWc").hide();
-            $(".sVAYfc").fadeTo(1, 0);
+            window.setTimeout(function () {
+                $(".sVAYfc").css({ 'opacity': 0, 'z-index': 0 });
+            }, 1);
         }
     } catch (error) {
         return false;
@@ -238,7 +255,6 @@ function validateEmail( string ) {
 // once the copy functionality is completed / cancelled, reset all globals and do cleanup here.
 function reset() {
     emailIDs = [];
-    $( document ).trigger('click');
     currentState = "init";
     membersProcessed = 0;
     window.clearInterval(scrollingTimer);
@@ -261,26 +277,31 @@ function calculateProgress( done, total ){
 function postMessage(msg) {
     var msgType = msg.type;
 
-    switch(msgType) {
-        case 'init':
-            port.postMessage({ type: msgType });
-            break;
-        case 'stats':
-            port.postMessage({ type: msgType, totalMemberCount: totalMembers });
-            break;
-        case 'processing':
-            port.postMessage({type: msgType, progress: percentageScrolled });
-            break;
-        case 'extracting':
-            port.postMessage({type: msgType, emailsExtracted: emailIDs.length, percentageScraped: percentageScraped });
-            break;
-        case 'completed':
-            port.postMessage({type: msgType, emailsExtracted: emailIDs.length, percentageScraped: percentageScraped, finalData: finalData });
-            break;
-        case 'error':
-            port.postMessage({ type: msgType });
-            break;
-    }
+    if (port) {
+        switch(msgType) {
+            case 'connected':
+                port.postMessage({ type: msgType });
+                break;
+            case 'init':
+                port.postMessage({ type: msgType });
+                break;
+            case 'stats':
+                port.postMessage({ type: msgType, totalMemberCount: totalMembers });
+                break;
+            case 'processing':
+                port.postMessage({type: msgType, progress: percentageScrolled });
+                break;
+            case 'extracting':
+                port.postMessage({type: msgType, emailsExtracted: emailIDs.length, percentageScraped: percentageScraped });
+                break;
+            case 'completed':
+                port.postMessage({type: msgType, emailsExtracted: emailIDs.length, percentageScraped: percentageScraped, finalData: finalData });
+                break;
+            case 'error':
+                port.postMessage({ type: msgType });
+                break;
+        }
+    } 
 }
 
 function cancelExtraction( event ) {

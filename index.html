@@ -6,13 +6,14 @@
         <script type="text/javascript" src="clipboard.min.js"></script>
     </head>
     <body>
+    	<div class="main-logo"></div>
         <h1 class="title"> Mail Extractor </h1>
-        <h2 class='sub-title'> Scrape mail IDs of members on Google+ Communities Pages </h2>
+        <h2 class='sub-title'> Scrape mail IDs of members on Google+ Communities </h2>
         <div class="members-count visibility-hidden"></div>
         <div class="job-status visibility-hidden"></div>
-        <button class="extract-mail-button active" id="extract" data-processing="" data-extracting="" data-action="Extract Emails" data-completed="Done! Copy to clipboard"> 
+        <button class="extract-mail-button active" id="extract" data-processing="" data-extracting="" data-action="Extract Emails" data-completed="Done! Copy to clipboard" data-emails-copied="Copied to clipboard!"> 
         	<span class="progress-bar"></span>
         </button>
-        <button class="cancel-extract-mail-button" id="cancel"> Cancel </button>
+        <button class="cancel-extract-mail-button visibility-hidden" id="cancel"> Cancel </button>
     </body>
 </html>
